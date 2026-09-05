@@ -94,6 +94,18 @@ export class WebsiteResearchProvider implements ResearchProvider {
       organization = organization ?? lead.organization;
     }
 
+    // A contact was found but the model didn't separately name the
+    // organization it belongs to (e.g. it read an email straight off an
+    // event page without also identifying who runs that page). Rather than
+    // leave the contact unattached to anything, fall back to a name we
+    // already know is real: the subject we deliberately searched for, or
+    // the entity the event page itself credited — never a guess from the
+    // email domain, which would be inventing a fact we can't verify.
+    if (!organization && contacts.length > 0) {
+      const knownName = subject ?? result.mediaPartnerLead?.name;
+      if (knownName) organization = { name: knownName };
+    }
+
     logger.info({
       subject,
       eventUrl: input.eventUrl,

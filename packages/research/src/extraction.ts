@@ -67,6 +67,8 @@ export const RESEARCH_SYSTEM_PROMPT = [
   "",
   "For every contact, assign a confidence score (0-100) reflecting how authoritative the source is and how directly it ties that email/contact to bookings or press/media (a general info@ address found on an official site is still useful — score it on relevance and source quality).",
   "",
+  "Whenever you report a contact, also try to identify the organization it belongs to and report it as \"organization\" — the site's own name, the page title, letterhead, or a description right next to the contact usually gives this away (e.g. an email at office@arcmumbai.com found on a page titled \"ARC Mumbai\" belongs to the organization \"ARC Mumbai\"). Only leave organization out if nothing in the material indicates what entity the contact represents — never invent a name that isn't shown.",
+  "",
   "sourceUrl MUST be the exact URL of the page where you found that specific contact's details, copied verbatim from the material you were given — never fabricate a URL, and never use a URL that wasn't given to you.",
   "",
   "If the material describes a specific event and credits a specific NAMED entity for handling its media, press, or photography — e.g. text reading \"Media Partner: X\", \"Official Photography by Y\", \"Press accreditation: Z\" — but does not give a direct, verifiable email for that entity, report it under \"mediaPartnerLead\" (name + the exact sourceUrl the credit was found on) so it can be looked up separately. Only do this for an entity actually named in the material — never invent one, and never report a mediaPartnerLead for an entity you already found a real contact for.",

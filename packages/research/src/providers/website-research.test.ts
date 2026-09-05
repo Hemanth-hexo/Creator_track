@@ -96,6 +96,19 @@ describe("WebsiteResearchProvider", () => {
     await expect(provider.research({ venueName: "X" })).rejects.toBeInstanceOf(ProviderError);
   });
 
+  it("falls back to the searched subject name for organization when a contact is found but the model didn't name one", async () => {
+    mockTavilyFetch();
+    mockGroqCreate.mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify({ contacts: validResult.contacts }) } }],
+    });
+
+    const provider = new WebsiteResearchProvider("tavily-key", "groq-key");
+    const result = await provider.research({ venueName: "Fandom Bengaluru" });
+
+    expect(result.contacts).toHaveLength(1);
+    expect(result.organization).toMatchObject({ name: "Fandom Bengaluru" });
+  });
+
   describe("eventUrl (media-partner discovery)", () => {
     const eventUrl = "https://example.com/events/summer-fest";
 
@@ -176,6 +189,7 @@ describe("WebsiteResearchProvider", () => {
 
       expect(result.contacts).toHaveLength(1);
       expect(result.contacts[0]).toMatchObject({ email: "press@loudandclear.com", sourceUrl: leadResult.url });
+      expect(result.organization).toMatchObject({ name: "Loud & Clear Magazine" });
       expect(mockGroqCreate).toHaveBeenCalledTimes(2);
     });
 
