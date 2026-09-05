@@ -8,8 +8,12 @@ async function main() {
   const env = loadEnv();
   const app = await buildServer();
 
-  await app.listen({ port: env.API_PORT, host: "0.0.0.0" });
-  logger.info({ port: env.API_PORT }, "api_listening");
+  // Hosts like Render/Railway assign their own PORT and require the app to
+  // bind to it — API_PORT remains the default for local dev.
+  const port = process.env.PORT ? Number(process.env.PORT) : env.API_PORT;
+
+  await app.listen({ port, host: "0.0.0.0" });
+  logger.info({ port }, "api_listening");
 
   startScheduler();
 }

@@ -1,0 +1,48 @@
+services:
+  - type: web
+    name: photography-outreach-api
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm exec turbo run build --filter=@photography-outreach/api...
+    startCommand: node apps/api/dist/index.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD_HASH
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: API_TOKEN
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+      - key: LLM_PROVIDER
+        value: groq
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "465"
+      - key: SMTP_SECURE
+        value: "true"
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      - key: EMAIL_FROM_NAME
+        sync: false
+      - key: EMAIL_FROM_ADDRESS
+        sync: false

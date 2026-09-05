@@ -1,0 +1,9 @@
+[build]
+  command = "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @photography-outreach/web build"
+  publish = "apps/web/.next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Set in the Netlify UI (Site configuration -> Environment variables), not here:
+#   NEXT_PUBLIC_API_BASE_URL = https://<your-render-api>.onrender.com

@@ -162,6 +162,23 @@ Unit tests mock external HTTP/LLM/SMTP calls. Integration and e2e tests need a r
 6. Send it — check the recipient's inbox for the real email.
 7. Scroll the opportunity's activity timeline to see every step logged, unedited.
 
+## Deployment
+
+Split across three free-tier services (the API is a persistent server with a cron scheduler, so it doesn't fit a serverless/static host like Netlify on its own):
+
+| Piece | Host | Why |
+|---|---|---|
+| `apps/web` | [Netlify](https://netlify.com) | Static/SSR hosting for Next.js — `netlify.toml` at the repo root already configures the build |
+| `apps/api` | [Render](https://render.com) (free web service) | Needs a real, persistent Node process — `render.yaml` at the repo root is a ready-to-use blueprint |
+| Postgres | [Neon](https://neon.tech) | Serverless Postgres, generous free tier |
+
+Steps:
+
+1. **Neon**: create a project, copy its connection string as `DATABASE_URL`.
+2. **Render**: New → Blueprint → point at this GitHub repo (it'll detect `render.yaml`). Fill in the `sync: false` env vars in the dashboard (`DATABASE_URL` from step 1, your API keys, `ADMIN_EMAIL`/`ADMIN_PASSWORD_HASH`/`SESSION_SECRET`/`API_TOKEN`, SMTP creds) — see `.env.example` for what each does. After it deploys, run migrations against the Neon database from your machine: `DATABASE_URL="<neon-url>" pnpm --filter @photography-outreach/database exec prisma migrate deploy`, then seed it the same way.
+3. **Netlify**: New site from Git → this repo (it'll detect `netlify.toml`). Set one environment variable: `NEXT_PUBLIC_API_BASE_URL` = your Render service's URL.
+4. **Scheduled jobs**: Render's free tier sleeps after 15 minutes idle, which would silently stop the API's in-process cron jobs from firing. `.github/workflows/scheduled-jobs.yml` works around this for free — it pings the API on a schedule (which also wakes it up). Add two repo secrets under Settings → Secrets and variables → Actions: `API_BASE_URL` (your Render URL) and `API_TOKEN` (matching what you set in Render).
+
 ## Security notes
 
 - Never commit `.env`. Copy `.env.example` and fill in real values locally only.

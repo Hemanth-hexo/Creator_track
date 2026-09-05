@@ -1,0 +1,33 @@
+name: Scheduled discovery and follow-up check
+
+# Render's free tier spins the API down after 15 minutes of inactivity, which
+# would silently stop its in-process node-cron jobs from firing. These pings
+# both trigger the work AND wake the service back up via the HTTP request
+# itself — free (GitHub Actions is free for public repos), no always-on
+# hosting required.
+on:
+  schedule:
+    - cron: "0 8 * * *" # daily discovery, 8am UTC
+    - cron: "0 * * * *" # hourly follow-up check
+  workflow_dispatch: {} # lets you trigger either job manually from the Actions tab
+
+jobs:
+  discover:
+    if: github.event.schedule == '0 8 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger event discovery
+        run: |
+          curl -sf -X POST "${{ secrets.API_BASE_URL }}/api/events/discover" \
+            -H "Authorization: Bearer ${{ secrets.API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{}'
+
+  followups:
+    if: github.event.schedule == '0 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for due follow-ups
+        run: |
+          curl -sf "${{ secrets.API_BASE_URL }}/api/followups/due" \
+            -H "Authorization: Bearer ${{ secrets.API_TOKEN }}"
