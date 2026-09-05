@@ -1,0 +1,40 @@
+{
+  "name": "@photography-outreach/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./server": "./dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "dotenv -e ../../.env --no-expand -- tsx watch src/index.ts",
+    "start": "dotenv -e ../../.env --no-expand -- node dist/index.js",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^10.0.2",
+    "@fastify/rate-limit": "^10.2.1",
+    "@photography-outreach/ai": "workspace:*",
+    "@photography-outreach/database": "workspace:*",
+    "@photography-outreach/email": "workspace:*",
+    "@photography-outreach/events": "workspace:*",
+    "@photography-outreach/opportunities": "workspace:*",
+    "@photography-outreach/research": "workspace:*",
+    "@photography-outreach/shared": "workspace:*",
+    "bcryptjs": "^2.4.3",
+    "fastify": "^5.2.0",
+    "fastify-type-provider-zod": "^4.0.2",
+    "node-cron": "^3.0.3",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node-cron": "^3.0.11",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

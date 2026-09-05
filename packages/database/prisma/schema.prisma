@@ -1,0 +1,423 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum OpportunityStatus {
+  discovered
+  qualified
+  researching
+  contact_found
+  drafted
+  approved
+  sent
+  follow_up
+  replied
+  booked
+  completed
+  rejected
+  dead
+}
+
+enum EmailDraftStatus {
+  draft
+  edited
+  approved
+  rejected
+  sent
+}
+
+enum EmailVersionType {
+  generated
+  edited
+  sent
+}
+
+enum OutreachStatus {
+  sent
+  failed
+  bounced
+}
+
+enum FollowupStatus {
+  scheduled
+  approved
+  sent
+  cancelled
+}
+
+enum OrganizationType {
+  venue
+  promoter
+  artist_mgmt
+  label
+  other
+}
+
+enum ActivityActor {
+  system
+  user
+  job
+}
+
+// ---------------------------------------------------------------------------
+// Event discovery
+// ---------------------------------------------------------------------------
+
+model Event {
+  id                String   @id @default(uuid())
+  source            String
+  sourceId          String   @map("source_id")
+  name              String
+  artistName        String   @map("artist_name")
+  artistUrl         String?  @map("artist_url")
+  venueName         String?  @map("venue_name")
+  venueCity         String?  @map("venue_city")
+  venueRegion       String?  @map("venue_region")
+  venueCountry      String?  @map("venue_country")
+  lat               Float?
+  lng               Float?
+  startsAt          DateTime @map("starts_at")
+  eventUrl          String?  @map("event_url")
+  description       String?
+  /// 0-100: how much to trust this event's details. Structured-API providers (e.g. a future
+  /// ticketing API) default to 100; web-search-discovered events carry the model's own estimate.
+  confidence          Int?     @default(100)
+  /// The exact page the discovery process found this event's details on — distinct from
+  /// eventUrl (the canonical event/ticket page), which may be unknown for a search-discovered event.
+  discoverySourceUrl String?  @map("discovery_source_url")
+  rawPayload         Json?    @map("raw_payload")
+  firstDiscoveredAt DateTime @default(now()) @map("first_discovered_at")
+  lastUpdatedAt     DateTime @updatedAt @map("last_updated_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  artistId String? @map("artist_id")
+  artist   Artist? @relation(fields: [artistId], references: [id])
+  venueId  String? @map("venue_id")
+  venue    Venue?  @relation(fields: [venueId], references: [id])
+
+  opportunity Opportunity?
+  activityLogs ActivityLog[]
+
+  @@unique([source, sourceId])
+  @@index([startsAt])
+  @@index([venueCity])
+  @@map("events")
+}
+
+model Artist {
+  id            String   @id @default(uuid())
+  name          String
+  source        String
+  sourceId      String   @map("source_id")
+  externalUrls  Json?    @map("external_urls")
+  genres        String[]
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  events Event[]
+
+  @@unique([source, sourceId])
+  @@map("artists")
+}
+
+model Venue {
+  id        String   @id @default(uuid())
+  name      String
+  city      String?
+  region    String?
+  country   String?
+  lat       Float?
+  lng       Float?
+  website   String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  events        Event[]
+  opportunities Opportunity[]
+
+  @@unique([name, city])
+  @@map("venues")
+}
+
+// ---------------------------------------------------------------------------
+// Organizations & contacts
+// ---------------------------------------------------------------------------
+
+model Organization {
+  id        String           @id @default(uuid())
+  name      String
+  type      OrganizationType @default(other)
+  website   String?
+  notes     String?
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  contacts      Contact[]
+  opportunities Opportunity[]
+
+  @@unique([name, type])
+  @@map("organizations")
+}
+
+model Contact {
+  id             String   @id @default(uuid())
+  organizationId String?  @map("organization_id")
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  name           String?
+  role           String?
+  email          String
+  phone          String?
+  socialLinks    Json?    @map("social_links")
+  source         String
+  sourceUrl      String?  @map("source_url")
+  confidence     Int      @default(50)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  opportunitiesAsPrimary Opportunity[] @relation("PrimaryContact")
+  emailDrafts            EmailDraft[]
+
+  @@unique([organizationId, email])
+  @@map("contacts")
+}
+
+// ---------------------------------------------------------------------------
+// Opportunities
+// ---------------------------------------------------------------------------
+
+model Opportunity {
+  id               String            @id @default(uuid())
+  eventId          String            @unique @map("event_id")
+  event            Event             @relation(fields: [eventId], references: [id])
+  venueId          String?           @map("venue_id")
+  venue            Venue?            @relation(fields: [venueId], references: [id])
+  organizationId   String?           @map("organization_id")
+  organization     Organization?     @relation(fields: [organizationId], references: [id])
+  primaryContactId String?           @map("primary_contact_id")
+  primaryContact   Contact?          @relation("PrimaryContact", fields: [primaryContactId], references: [id])
+
+  score        Int      @default(0)
+  scoreReasons Json?    @map("score_reasons")
+  status       OpportunityStatus @default(discovered)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  emailDrafts  EmailDraft[]
+  outreach     Outreach[]
+  followups    Followup[]
+  activityLogs ActivityLog[]
+
+  @@index([status])
+  @@index([score])
+  @@map("opportunities")
+}
+
+// ---------------------------------------------------------------------------
+// Email drafts & versions
+// ---------------------------------------------------------------------------
+
+model EmailDraft {
+  id                       String           @id @default(uuid())
+  opportunityId            String           @map("opportunity_id")
+  opportunity              Opportunity      @relation(fields: [opportunityId], references: [id])
+  contactId                String?          @map("contact_id")
+  contact                  Contact?         @relation(fields: [contactId], references: [id])
+
+  subject                  String
+  body                     String
+  personalizationReasoning String?          @map("personalization_reasoning")
+  suggestedService         String?          @map("suggested_service")
+  portfolioReference       String?          @map("portfolio_reference")
+  cta                      String?
+
+  status      EmailDraftStatus @default(draft)
+  approvedAt  DateTime?        @map("approved_at")
+  approvedBy  String?          @map("approved_by")
+  rejectedAt  DateTime?        @map("rejected_at")
+  rejectionReason String?      @map("rejection_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  versions  EmailVersion[]
+  outreach  Outreach?
+  followups Followup[]
+
+  @@index([opportunityId])
+  @@index([status])
+  @@map("email_drafts")
+}
+
+model EmailVersion {
+  id               String           @id @default(uuid())
+  draftId          String           @map("draft_id")
+  draft            EmailDraft       @relation(fields: [draftId], references: [id])
+  versionType      EmailVersionType @map("version_type")
+  subject          String
+  body             String
+  modelUsed        String?          @map("model_used")
+  promptVersion    String?          @map("prompt_version")
+  retrievedContext Json?            @map("retrieved_context")
+  createdBy        String?          @map("created_by")
+  generatedAt      DateTime         @default(now()) @map("generated_at")
+
+  @@index([draftId])
+  @@map("email_versions")
+}
+
+// ---------------------------------------------------------------------------
+// Outreach & follow-ups
+// ---------------------------------------------------------------------------
+
+model Outreach {
+  id               String         @id @default(uuid())
+  opportunityId    String         @map("opportunity_id")
+  opportunity      Opportunity    @relation(fields: [opportunityId], references: [id])
+  emailDraftId     String         @unique @map("email_draft_id")
+  emailDraft       EmailDraft     @relation(fields: [emailDraftId], references: [id])
+  recipientEmail   String         @map("recipient_email")
+  sentAt           DateTime?      @map("sent_at")
+  providerMessageId String?       @map("provider_message_id")
+  status           OutreachStatus @default(sent)
+  error            String?
+  createdAt        DateTime       @default(now()) @map("created_at")
+
+  followups Followup[]
+
+  @@index([opportunityId])
+  @@map("outreach")
+}
+
+model Followup {
+  id            String         @id @default(uuid())
+  opportunityId String         @map("opportunity_id")
+  opportunity   Opportunity    @relation(fields: [opportunityId], references: [id])
+  outreachId    String         @map("outreach_id")
+  outreach      Outreach       @relation(fields: [outreachId], references: [id])
+  draftId       String?        @map("draft_id")
+  draft         EmailDraft?    @relation(fields: [draftId], references: [id])
+  scheduledFor  DateTime       @map("scheduled_for")
+  status        FollowupStatus @default(scheduled)
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  @@index([opportunityId])
+  @@index([status, scheduledFor])
+  @@map("followups")
+}
+
+// ---------------------------------------------------------------------------
+// Activity log (append-only audit trail / timeline)
+// ---------------------------------------------------------------------------
+
+model ActivityLog {
+  id            String        @id @default(uuid())
+  opportunityId String?       @map("opportunity_id")
+  opportunity   Opportunity?  @relation(fields: [opportunityId], references: [id])
+  eventId       String?       @map("event_id")
+  event         Event?        @relation(fields: [eventId], references: [id])
+  type          String
+  message       String
+  metadata      Json?
+  actor         ActivityActor @default(system)
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  @@index([opportunityId, createdAt])
+  @@index([type])
+  @@map("activity_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Knowledge base (Phase 3 RAG target — populated minimally in Phase 1)
+// ---------------------------------------------------------------------------
+
+model KnowledgeDocument {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  category  String
+  source    String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("knowledge_documents")
+}
+
+model PortfolioReference {
+  id          String   @id @default(uuid())
+  title       String
+  url         String
+  description String?
+  tags        String[]
+  category    String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("portfolio_references")
+}
+
+// ---------------------------------------------------------------------------
+// Configuration
+// ---------------------------------------------------------------------------
+
+/// A standing web-search query the discovery job runs (e.g. "upcoming electronic music
+/// events in Bengaluru, India"), fed to EventDiscoveryService as the target/query string.
+/// Replaces the earlier Bandsintown-era WatchedArtist model now that discovery is
+/// location/genre-driven web search rather than artist-name-keyed API lookups.
+model DiscoveryQuery {
+  id        String   @id @default(uuid())
+  query     String   @unique
+  location  String?
+  active    Boolean  @default(true)
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("discovery_queries")
+}
+
+/// Singleton row (id = "default") holding the static photographer context
+/// injected into every outreach-email generation prompt.
+model PhotographerProfile {
+  id                 String   @id @default("default")
+  displayName        String   @map("display_name")
+  services           String[]
+  experienceBullets  String[] @map("experience_bullets")
+  styleKeywords      String[] @map("style_keywords")
+  targetCities       String[] @map("target_cities")
+  targetGenres       String[] @map("target_genres")
+  portfolioUrl       String?  @map("portfolio_url")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("photographer_profile")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("users")
+}
+
+model JobRun {
+  id         String    @id @default(uuid())
+  jobName    String    @map("job_name")
+  startedAt  DateTime  @default(now()) @map("started_at")
+  finishedAt DateTime? @map("finished_at")
+  status     String    @default("running")
+  stats      Json?
+  error      String?
+
+  @@index([jobName, startedAt])
+  @@map("job_runs")
+}

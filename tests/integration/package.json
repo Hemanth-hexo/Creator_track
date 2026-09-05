@@ -1,0 +1,18 @@
+{
+  "name": "@photography-outreach/integration",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "dotenv -e ../../.env --no-expand -- vitest run"
+  },
+  "dependencies": {
+    "@photography-outreach/api": "workspace:*",
+    "@photography-outreach/database": "workspace:*",
+    "@photography-outreach/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

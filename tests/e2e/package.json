@@ -1,0 +1,21 @@
+{
+  "name": "@photography-outreach/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "dotenv -e ../../.env --no-expand -- vitest run"
+  },
+  "dependencies": {
+    "@photography-outreach/ai": "workspace:*",
+    "@photography-outreach/database": "workspace:*",
+    "@photography-outreach/email": "workspace:*",
+    "@photography-outreach/opportunities": "workspace:*",
+    "@photography-outreach/research": "workspace:*",
+    "@photography-outreach/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
