@@ -26,6 +26,7 @@ export async function researchOpportunity(opportunityId: string, provider: Resea
     const result = await provider.research({
       organizationName: opportunity.organization?.name,
       venueName: opportunity.event.venueName ?? undefined,
+      eventUrl: opportunity.event.eventUrl ?? opportunity.event.discoverySourceUrl ?? undefined,
     });
 
     let organizationId = opportunity.organizationId ?? undefined;

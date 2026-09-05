@@ -12,7 +12,7 @@ import type { OrganizationType } from "@photography-outreach/database";
  */
 export interface ResearchProvider {
   readonly name: string;
-  research(input: { organizationName?: string; website?: string; venueName?: string }): Promise<{
+  research(input: { organizationName?: string; website?: string; venueName?: string; eventUrl?: string }): Promise<{
     organization?: { name: string; website?: string; type?: OrganizationType };
     contacts: Array<{
       name?: string;

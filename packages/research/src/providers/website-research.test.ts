@@ -95,4 +95,99 @@ describe("WebsiteResearchProvider", () => {
     const provider = new WebsiteResearchProvider("tavily-key", "groq-key");
     await expect(provider.research({ venueName: "X" })).rejects.toBeInstanceOf(ProviderError);
   });
+
+  describe("eventUrl (media-partner discovery)", () => {
+    const eventUrl = "https://example.com/events/summer-fest";
+
+    function mockTavilyRoutes(extractResponse: { ok: boolean; rawContent?: string }, searchResults: unknown[]) {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockImplementation(async (url: string) => {
+          if (String(url).includes("/extract")) {
+            if (!extractResponse.ok) {
+              return { ok: false, status: 404, text: async () => "not found" };
+            }
+            return { ok: true, status: 200, json: async () => ({ results: [{ url: eventUrl, raw_content: extractResponse.rawContent }] }) };
+          }
+          return { ok: true, status: 200, json: async () => ({ results: searchResults }) };
+        }),
+      );
+    }
+
+    it("fetches the event's own page via Tavily extract and lets it contribute a contact", async () => {
+      mockTavilyRoutes(
+        { ok: true, rawContent: "Summer Fest lineup. Press inquiries: press@loudandclear.com" },
+        [],
+      );
+      mockGroqCreate.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                contacts: [{ email: "press@loudandclear.com", role: "Press", sourceUrl: eventUrl, confidence: 60 }],
+              }),
+            },
+          },
+        ],
+      });
+
+      const provider = new WebsiteResearchProvider("tavily-key", "groq-key");
+      const result = await provider.research({ eventUrl });
+
+      expect(result.contacts).toHaveLength(1);
+      expect(result.contacts[0]).toMatchObject({ email: "press@loudandclear.com", sourceUrl: eventUrl });
+    });
+
+    it("looks up a media-partner lead named on the event page when no direct contact is found there", async () => {
+      const leadResult = {
+        title: "Loud & Clear Magazine — Contact",
+        url: "https://loudandclear.example.com/contact",
+        content: "Reach the editorial desk at press@loudandclear.com for press and partnership inquiries.",
+      };
+      mockTavilyRoutes({ ok: true, rawContent: "Summer Fest lineup. Media Partner: Loud & Clear Magazine." }, [leadResult]);
+
+      mockGroqCreate
+        .mockResolvedValueOnce({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  contacts: [],
+                  mediaPartnerLead: { name: "Loud & Clear Magazine", sourceUrl: eventUrl },
+                }),
+              },
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  contacts: [{ email: "press@loudandclear.com", role: "Editorial", sourceUrl: leadResult.url, confidence: 55 }],
+                }),
+              },
+            },
+          ],
+        });
+
+      const provider = new WebsiteResearchProvider("tavily-key", "groq-key");
+      const result = await provider.research({ eventUrl });
+
+      expect(result.contacts).toHaveLength(1);
+      expect(result.contacts[0]).toMatchObject({ email: "press@loudandclear.com", sourceUrl: leadResult.url });
+      expect(mockGroqCreate).toHaveBeenCalledTimes(2);
+    });
+
+    it("falls back to the generic name search when the event page can't be fetched", async () => {
+      mockTavilyRoutes({ ok: false }, [tavilyResult]);
+      mockGroqCreate.mockResolvedValue({ choices: [{ message: { content: JSON.stringify(validResult) } }] });
+
+      const provider = new WebsiteResearchProvider("tavily-key", "groq-key");
+      const result = await provider.research({ venueName: "Fandom Bengaluru", eventUrl });
+
+      expect(result.contacts).toHaveLength(1);
+      expect(result.contacts[0]).toMatchObject({ email: "bookings@fandombengaluru.com" });
+    });
+  });
 });

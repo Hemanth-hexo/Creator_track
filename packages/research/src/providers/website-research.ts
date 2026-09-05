@@ -10,6 +10,8 @@ interface TavilyResult {
   url: string;
   content: string;
   published_date?: string;
+  /** Per-item truncation cap applied when building the extraction prompt; defaults to MAX_CONTENT_CHARS. */
+  maxChars?: number;
 }
 
 interface TavilyResponse {
@@ -17,8 +19,10 @@ interface TavilyResponse {
 }
 
 const TAVILY_SEARCH_URL = "https://api.tavily.com/search";
+const TAVILY_EXTRACT_URL = "https://api.tavily.com/extract";
 const GROQ_BASE_URL = "https://api.groq.com/openai/v1";
 const MAX_CONTENT_CHARS = 600;
+const MAX_EVENT_PAGE_CHARS = 4000;
 
 /**
  * The Phase 2 automated research provider — same split as event discovery
@@ -46,29 +50,92 @@ export class WebsiteResearchProvider implements ResearchProvider {
     this.groqClient = new OpenAI({ apiKey: groqApiKey, baseURL: GROQ_BASE_URL });
   }
 
-  async research(input: { organizationName?: string; website?: string; venueName?: string }) {
+  async research(input: { organizationName?: string; website?: string; venueName?: string; eventUrl?: string }) {
     const subject = input.organizationName ?? input.venueName;
-    if (!subject && !input.website) {
+    if (!subject && !input.website && !input.eventUrl) {
       return { contacts: [] };
     }
 
-    const query = [
-      subject,
-      input.website ? `(${input.website})` : "",
-      "booking contact email press inquiries",
-    ]
-      .filter(Boolean)
-      .join(" ");
+    // The event's own page (poster/listing) often names exactly who handles
+    // its press/photo access — e.g. "Media Partner: X" — which is a much
+    // more targeted signal than a blind name search. It's fetched alongside,
+    // not instead of, the generic search below (subjects are extracted from
+    // both together, deduped by allowedSourceUrls in extract()).
+    const eventPage = input.eventUrl ? await this.extractPage(input.eventUrl) : null;
+    const results = [...(eventPage ? [eventPage] : [])];
 
-    const results = await this.search(query);
+    if (subject || input.website) {
+      const query = [
+        subject,
+        input.website ? `(${input.website})` : "",
+        "booking contact email press inquiries",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      results.push(...(await this.search(query)));
+    }
+
     if (results.length === 0) {
-      logger.info({ query, searchResults: 0, kept: 0, status: "ok" });
+      logger.info({ subject, eventUrl: input.eventUrl, searchResults: 0, kept: 0, status: "ok" });
       return { contacts: [] };
     }
 
-    const result = await this.extract(query, results);
-    logger.info({ query, searchResults: results.length, kept: result.contacts.length, status: "ok" });
-    return result;
+    const target = subject ?? input.eventUrl ?? "event page";
+    const result = await this.extract(target, results);
+
+    // The event page named someone (e.g. a media partner) but gave no direct
+    // email for them — look that name up on its own before handing anything
+    // back, the same way a human would follow up on a name they just read.
+    let contacts = result.contacts;
+    let organization = result.organization;
+    if (result.mediaPartnerLead && contacts.length === 0) {
+      const lead = await this.researchNamedLead(result.mediaPartnerLead.name);
+      contacts = lead.contacts;
+      organization = organization ?? lead.organization;
+    }
+
+    logger.info({
+      subject,
+      eventUrl: input.eventUrl,
+      searchResults: results.length,
+      mediaPartnerLead: result.mediaPartnerLead?.name,
+      kept: contacts.length,
+      status: "ok",
+    });
+    return { organization, contacts };
+  }
+
+  /** Follow-up search for a specific named entity (e.g. a media partner credited on an event page), reusing the same search+extract flow. */
+  private async researchNamedLead(name: string) {
+    const leadResults = await this.search(`${name} contact email press inquiries`);
+    if (leadResults.length === 0) return { contacts: [] };
+    return this.extract(name, leadResults);
+  }
+
+  /** Fetches the real, public content of one URL (the event's own page). Never throws — this is a supplementary signal, not the only path to a result. */
+  private async extractPage(url: string): Promise<TavilyResult | null> {
+    let response: Response;
+    try {
+      response = await fetch(TAVILY_EXTRACT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ api_key: this.tavilyApiKey, urls: [url] }),
+      });
+    } catch (error) {
+      logger.warn({ url, err: error instanceof Error ? error.message : error }, "event_page_extract_failed");
+      return null;
+    }
+
+    if (!response.ok) {
+      logger.warn({ url, status: response.status }, "event_page_extract_failed");
+      return null;
+    }
+
+    const payload = (await response.json()) as { results?: Array<{ url: string; raw_content?: string }> };
+    const hit = payload.results?.[0];
+    if (!hit?.raw_content) return null;
+
+    return { title: url, url: hit.url, content: hit.raw_content, maxChars: MAX_EVENT_PAGE_CHARS };
   }
 
   private async search(query: string): Promise<TavilyResult[]> {
@@ -115,7 +182,10 @@ export class WebsiteResearchProvider implements ResearchProvider {
             `Title: ${r.title}`,
             r.published_date ? `Published: ${r.published_date}` : "",
             "",
-            r.content.length > MAX_CONTENT_CHARS ? `${r.content.slice(0, MAX_CONTENT_CHARS)}...` : r.content,
+            (() => {
+              const limit = r.maxChars ?? MAX_CONTENT_CHARS;
+              return r.content.length > limit ? `${r.content.slice(0, limit)}...` : r.content;
+            })(),
           ]
             .filter(Boolean)
             .join("\n"),
