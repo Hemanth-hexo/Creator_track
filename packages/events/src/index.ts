@@ -1,6 +1,7 @@
 export * from "./types.js";
 export * from "./discovery.js";
 export * from "./dedupe.js";
+export * from "./concurrency.js";
 export * from "./extraction.js";
 export * from "./search.js";
 export * from "./providers/tavily-groq.js";

@@ -1,5 +1,6 @@
 import { prisma } from "@photography-outreach/database";
 import { createLogger, withLogging } from "@photography-outreach/shared";
+import { mapWithConcurrency } from "./concurrency.js";
 import { findFuzzyDuplicate } from "./dedupe.js";
 import type { EventProvider, NormalizedEvent } from "./types.js";
 
@@ -147,6 +148,15 @@ export async function upsertEvent(incoming: NormalizedEvent): Promise<{ id: stri
   return { id: created.id, created: true };
 }
 
+// How many discovery queries run concurrently. Each one is a real search +
+// LLM extraction round trip (several seconds), so running them fully
+// sequentially made a handful of queries take well over a minute — long
+// enough to exceed most client/proxy timeouts. Kept modest (rather than
+// unlimited) because Groq's free tier has a per-minute token budget shared
+// across whatever's in flight at once; too much concurrency just trades a
+// slow success for a fast rate-limit error on some queries.
+const DISCOVERY_CONCURRENCY = 2;
+
 /**
  * Runs discovery for every active discovery query against the given
  * provider, upserting each result. Safe to re-run repeatedly (idempotent
@@ -165,24 +175,39 @@ export async function discoverEvents(provider: EventProvider): Promise<Discovery
       errors: [],
     };
 
-    for (const discoveryQuery of queries) {
-      stats.targetsProcessed += 1;
+    // The slow part (search + LLM extraction) runs concurrently. Database
+    // writes below stay strictly sequential: two different queries can
+    // legitimately surface the same real-world event, and concurrent
+    // upserts could race past each other's dedup check and create a
+    // genuine duplicate row — the fetch/persist split keeps that safe while
+    // still getting the actual speedup, since the network calls are what
+    // made this slow, not the (fast, local) database writes.
+    const fetchResults = await mapWithConcurrency(queries, DISCOVERY_CONCURRENCY, async (discoveryQuery) => {
       try {
         const events = await provider.fetchEvents(discoveryQuery.query);
-        stats.eventsSeen += events.length;
-        for (const event of events) {
-          const result = await upsertEvent(event);
-          if (result.created) stats.eventsCreated += 1;
-          else if (result.duplicate) stats.duplicatesSkipped += 1;
-          else stats.eventsUpdated += 1;
-        }
+        return { query: discoveryQuery.query, events, error: null as string | null };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         logger.error(
           { query: discoveryQuery.query, provider: provider.name, err: message },
           "discoverEvents:target_failed",
         );
-        stats.errors.push({ target: discoveryQuery.query, message });
+        return { query: discoveryQuery.query, events: [] as NormalizedEvent[], error: message };
+      }
+    });
+
+    for (const result of fetchResults) {
+      stats.targetsProcessed += 1;
+      if (result.error) {
+        stats.errors.push({ target: result.query, message: result.error });
+        continue;
+      }
+      stats.eventsSeen += result.events.length;
+      for (const event of result.events) {
+        const upserted = await upsertEvent(event);
+        if (upserted.created) stats.eventsCreated += 1;
+        else if (upserted.duplicate) stats.duplicatesSkipped += 1;
+        else stats.eventsUpdated += 1;
       }
     }
 
