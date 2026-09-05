@@ -24,6 +24,7 @@ export function setSessionCookie(reply: FastifyReply, userId: string) {
     signed: true,
     httpOnly: true,
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: SESSION_MAX_AGE_SECONDS,
   });

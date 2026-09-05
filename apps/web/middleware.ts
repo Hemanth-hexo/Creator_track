@@ -5,7 +5,11 @@ const PUBLIC_PATHS = ["/login"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p)) || pathname.startsWith("/_next")) {
+  // /api/* is proxied straight through to the real API (see next.config.mjs)
+  // which has its own, independent auth — this page-level gate must never
+  // intercept it, or the login request itself would get redirected instead
+  // of reaching the API.
+  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p)) || pathname.startsWith("/_next") || pathname.startsWith("/api/")) {
     return NextResponse.next();
   }
 
@@ -24,5 +28,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api/|_next/static|_next/image|favicon.ico).*)"],
 };

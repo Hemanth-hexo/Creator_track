@@ -1,6 +1,8 @@
 "use client";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+// Always relative — next.config.mjs proxies /api/* to the real API server,
+// so the browser only ever talks to this app's own origin (see the comment
+// there for why that matters for the session cookie).
 
 export class ApiError extends Error {
   code: string;
@@ -13,7 +15,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(path, {
     ...options,
     credentials: "include",
     headers: options.body ? { "Content-Type": "application/json", ...options.headers } : options.headers,

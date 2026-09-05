@@ -6,4 +6,9 @@
   package = "@netlify/plugin-nextjs"
 
 # Set in the Netlify UI (Site configuration -> Environment variables), not here:
-#   NEXT_PUBLIC_API_BASE_URL = https://<your-render-api>.onrender.com
+#   API_PROXY_TARGET = https://<your-render-api>.onrender.com
+#
+# NOT NEXT_PUBLIC_API_BASE_URL — the browser never calls the API directly.
+# Next.js's own server proxies /api/* to this URL (see apps/web/next.config.mjs)
+# so the browser only ever talks to this site's own origin, which is what
+# lets the session cookie work at all across two different hosting domains.

@@ -176,7 +176,7 @@ Steps:
 
 1. **Neon**: create a project, copy its connection string as `DATABASE_URL`.
 2. **Render**: New → Blueprint → point at this GitHub repo (it'll detect `render.yaml`). Fill in the `sync: false` env vars in the dashboard (`DATABASE_URL` from step 1, your API keys, `ADMIN_EMAIL`/`ADMIN_PASSWORD_HASH`/`SESSION_SECRET`/`API_TOKEN`, SMTP creds) — see `.env.example` for what each does. After it deploys, run migrations against the Neon database from your machine: `DATABASE_URL="<neon-url>" pnpm --filter @photography-outreach/database exec prisma migrate deploy`, then seed it the same way.
-3. **Netlify**: New site from Git → this repo (it'll detect `netlify.toml`). Set one environment variable: `NEXT_PUBLIC_API_BASE_URL` = your Render service's URL.
+3. **Netlify**: New site from Git → this repo (it'll detect `netlify.toml`). Set one environment variable: `API_PROXY_TARGET` = your Render service's URL. (Not `NEXT_PUBLIC_API_BASE_URL` — the browser never calls the API directly; Next.js's own server proxies `/api/*` to it, which is what makes the session cookie work at all across two different hosting domains — see `apps/web/next.config.mjs`.)
 4. **Scheduled jobs**: Render's free tier sleeps after 15 minutes idle, which would silently stop the API's in-process cron jobs from firing. `.github/workflows/scheduled-jobs.yml` works around this for free — it pings the API on a schedule (which also wakes it up). Add two repo secrets under Settings → Secrets and variables → Actions: `API_BASE_URL` (your Render URL) and `API_TOKEN` (matching what you set in Render).
 
 ## Security notes
