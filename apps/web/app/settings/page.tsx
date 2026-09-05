@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
-import type { DiscoveryQuery, PhotographerProfile } from "@/lib/types";
+import type { CreativeProfile, DiscoveryQuery } from "@/lib/types";
 
 function ListEditor({ label, values, onChange }: { label: string; values: string[]; onChange: (v: string[]) => void }) {
   const [text, setText] = useState(values.join("\n"));
@@ -23,7 +23,7 @@ function ListEditor({ label, values, onChange }: { label: string; values: string
 }
 
 export default function SettingsPage() {
-  const [profile, setProfile] = useState<PhotographerProfile | null>(null);
+  const [profile, setProfile] = useState<CreativeProfile | null>(null);
   const [queries, setQueries] = useState<DiscoveryQuery[]>([]);
   const [newQuery, setNewQuery] = useState("");
   const [newLocation, setNewLocation] = useState("");
@@ -33,7 +33,7 @@ export default function SettingsPage() {
   async function load() {
     try {
       const [p, q] = await Promise.all([
-        api.get<PhotographerProfile>("/api/settings/profile"),
+        api.get<CreativeProfile>("/api/settings/profile"),
         api.get<DiscoveryQuery[]>("/api/settings/discovery-queries"),
       ]);
       setProfile(p);
@@ -87,10 +87,20 @@ export default function SettingsPage() {
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="card p-4 space-y-4">
-        <h2 className="text-sm font-semibold text-slate-700">Photographer profile</h2>
+        <h2 className="text-sm font-semibold text-slate-700">Creative profile</h2>
         <div>
           <label className="label">Display name</label>
           <input className="input" value={profile.displayName} onChange={(e) => setProfile({ ...profile, displayName: e.target.value })} />
+        </div>
+        <div>
+          <label className="label">Craft / discipline</label>
+          <input
+            className="input"
+            placeholder='e.g. "concert photography", "wedding videography", "live sound engineering"'
+            value={profile.craft}
+            onChange={(e) => setProfile({ ...profile, craft: e.target.value })}
+          />
+          <p className="text-xs text-slate-400 mt-1">Not limited to photography — every generated email reads this instead of assuming photography.</p>
         </div>
         <div>
           <label className="label">Portfolio URL</label>

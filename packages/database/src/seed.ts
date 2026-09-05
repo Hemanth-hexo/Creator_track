@@ -3,12 +3,13 @@ import { prisma } from "./client.js";
 async function main() {
   console.log("Seeding database...");
 
-  await prisma.photographerProfile.upsert({
+  await prisma.creativeProfile.upsert({
     where: { id: "default" },
     update: {},
     create: {
       id: "default",
       displayName: "Your Name Photography",
+      craft: "concert photography",
       services: ["Live concert photography", "Backstage/press photography", "Event coverage"],
       experienceBullets: [
         "Shot free/unpaid live music and event sets to build a concert photography portfolio",

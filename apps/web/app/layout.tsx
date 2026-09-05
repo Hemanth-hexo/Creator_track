@@ -3,8 +3,8 @@ import "./globals.css";
 import { Nav } from "@/components/Nav";
 
 export const metadata: Metadata = {
-  title: "Photography Outreach",
-  description: "Internal outreach CRM for discovering and pitching photography opportunities",
+  title: "Creator Outreach",
+  description: "Internal outreach CRM for discovering and pitching paid creative work — not limited to photography",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

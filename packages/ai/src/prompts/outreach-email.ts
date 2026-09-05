@@ -1,9 +1,11 @@
 import { wrapUntrustedContent } from "@photography-outreach/shared";
 
-export const OUTREACH_EMAIL_PROMPT_VERSION = "outreach-email-v1";
+export const OUTREACH_EMAIL_PROMPT_VERSION = "outreach-email-v2";
 
-export interface PhotographerContext {
+export interface CreativeContext {
   displayName: string;
+  /** e.g. "concert photography", "wedding videography", "live sound engineering" — never assume photography. */
+  craft: string;
   services: string[];
   experienceBullets: string[];
   styleKeywords: string[];
@@ -11,7 +13,7 @@ export interface PhotographerContext {
 }
 
 export interface OutreachPromptContext {
-  photographer: PhotographerContext;
+  creative: CreativeContext;
   event: {
     name: string;
     artistName: string;
@@ -38,11 +40,13 @@ const BANNED_PHRASES = [
 ];
 
 export function buildOutreachEmailPrompt(ctx: OutreachPromptContext): { system: string; prompt: string } {
+  const craft = ctx.creative.craft;
+
   const system = [
-    "You write short, specific, human-sounding photography outreach emails on behalf of a real photographer.",
+    `You write short, specific, human-sounding outreach emails on behalf of a real ${craft} professional pitching paid work for a specific event.`,
     "",
     "HARD RULES — violating any of these makes the output unusable:",
-    "1. Only state facts that appear in the PHOTOGRAPHER_PROFILE block below. Never invent clients, past events, years of experience, publications, or achievements the profile doesn't mention.",
+    "1. Only state facts that appear in the CREATIVE_PROFILE block below. Never invent clients, past events, years of experience, publications, or achievements the profile doesn't mention.",
     "2. Never claim experience with this specific artist, venue, or organization unless the profile explicitly says so.",
     "3. Do not use any of these phrases or their close equivalents: " + BANNED_PHRASES.join("; ") + ".",
     "4. No corporate language, no excessive flattery, no long paragraphs. Aim for 3-6 short sentences in the body.",
@@ -57,12 +61,13 @@ export function buildOutreachEmailPrompt(ctx: OutreachPromptContext): { system: 
   ].join("\n");
 
   const profileBlock = [
-    "PHOTOGRAPHER_PROFILE:",
-    `Name: ${ctx.photographer.displayName}`,
-    `Services offered: ${ctx.photographer.services.join(", ")}`,
-    `Experience (only true, verifiable facts — do not embellish): ${ctx.photographer.experienceBullets.join("; ")}`,
-    `Style: ${ctx.photographer.styleKeywords.join(", ")}`,
-    `Portfolio: ${ctx.photographer.portfolioUrl ?? "(none provided)"}`,
+    "CREATIVE_PROFILE:",
+    `Name: ${ctx.creative.displayName}`,
+    `Craft/discipline: ${craft}`,
+    `Services offered: ${ctx.creative.services.join(", ")}`,
+    `Experience (only true, verifiable facts — do not embellish): ${ctx.creative.experienceBullets.join("; ")}`,
+    `Style: ${ctx.creative.styleKeywords.join(", ")}`,
+    `Portfolio: ${ctx.creative.portfolioUrl ?? "(none provided)"}`,
   ].join("\n");
 
   const recipientLine = ctx.contact
@@ -93,7 +98,7 @@ export function buildOutreachEmailPrompt(ctx: OutreachPromptContext): { system: 
     "",
     descriptionBlock,
     "",
-    "Write a personalized outreach email pitching photography coverage for this event, following every rule above.",
+    `Write a personalized outreach email pitching ${craft} coverage for this event, following every rule above.`,
   ]
     .filter(Boolean)
     .join("\n");

@@ -1,10 +1,14 @@
-# Photography Outreach CRM
+# Creator Outreach CRM
 
-A CRM that finds paid photography work for you: it discovers real upcoming events, scores which ones are worth pitching, researches who to contact, drafts a personalized outreach email — and then **waits for you**. Nothing gets sent without a human clicking approve.
+A CRM that finds paid, event-based creative work for you — photographers, videographers, live sound engineers, or anyone else who pitches for a spot at upcoming events. It discovers real upcoming events, scores which ones are worth pitching, researches who to contact, drafts a personalized outreach email — and then **waits for you**. Nothing gets sent without a human clicking approve.
+
+Your discipline isn't hardcoded: a "craft" field on your profile (`concert photography`, `wedding videography`, `live sound engineering`, whatever you actually do) is what every generated email is built around — the system was originally built photographer-first, and that's still the default example throughout, but nothing about the pipeline assumes photography specifically.
 
 **Discover → Score → Research a contact → Draft an email → Human approves → Send → Track → Follow up.**
 
 Live, working, zero-cost stack: event/contact discovery runs on Tavily's search API + Groq's inference API, both free tiers, no credit card. This is a standalone project — it does not import, modify, or depend on any other codebase.
+
+Currently: a single-user, self-hosted tool — fork it, plug in your own free API keys, and run your own copy. (A shared multi-tenant version, where many people sign up on one hosted instance, is a planned future direction — see the architecture doc.)
 
 ---
 

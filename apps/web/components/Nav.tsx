@@ -25,7 +25,7 @@ export function Nav() {
   return (
     <nav className="w-56 shrink-0 border-r border-slate-200 bg-white h-screen sticky top-0 flex flex-col">
       <div className="px-4 py-5 border-b border-slate-100">
-        <div className="font-semibold text-slate-900">Photography Outreach</div>
+        <div className="font-semibold text-slate-900">Creator Outreach</div>
         <div className="text-xs text-slate-500">CRM &amp; automation</div>
       </div>
       <div className="flex-1 py-4 px-2 space-y-1">

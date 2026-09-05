@@ -39,7 +39,7 @@ function LoginForm() {
     <div className="min-h-screen w-full flex items-center justify-center bg-slate-50">
       <form onSubmit={handleSubmit} className="card p-8 w-full max-w-sm space-y-4">
         <div>
-          <h1 className="text-lg font-semibold">Photography Outreach</h1>
+          <h1 className="text-lg font-semibold">Creator Outreach</h1>
           <p className="text-sm text-slate-500">Sign in to your dashboard</p>
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}

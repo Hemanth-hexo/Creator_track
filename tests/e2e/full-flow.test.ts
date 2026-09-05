@@ -21,12 +21,13 @@ describe("Phase 1 end-to-end outreach flow", () => {
   let eventId: string;
 
   beforeAll(async () => {
-    await prisma.photographerProfile.upsert({
+    await prisma.creativeProfile.upsert({
       where: { id: "default" },
       update: {},
       create: {
         id: "default",
         displayName: "E2E Test Photographer",
+        craft: "concert photography",
         services: ["Concert photography"],
         experienceBullets: ["Shot free concerts for a local venue"],
         styleKeywords: ["low-light"],

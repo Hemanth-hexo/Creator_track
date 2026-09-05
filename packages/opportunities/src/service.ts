@@ -45,7 +45,7 @@ async function buildScoringContext(opportunityId: string): Promise<ScoringContex
   if (!opportunity) throw new NotFoundError("Opportunity", opportunityId);
 
   const [profile, recentOutreach, convertedSimilar] = await Promise.all([
-    prisma.photographerProfile.findUnique({ where: { id: "default" } }),
+    prisma.creativeProfile.findUnique({ where: { id: "default" } }),
     prisma.outreach.count({
       where: {
         createdAt: { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) },

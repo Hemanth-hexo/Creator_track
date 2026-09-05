@@ -384,11 +384,17 @@ model DiscoveryQuery {
   @@map("discovery_queries")
 }
 
-/// Singleton row (id = "default") holding the static photographer context
-/// injected into every outreach-email generation prompt.
-model PhotographerProfile {
+/// Singleton row (id = "default") holding the static creative-professional
+/// context injected into every outreach-email generation prompt. Not
+/// photography-specific — `craft` names whatever discipline the user works
+/// in (e.g. "concert photography", "live sound engineering", "event
+/// videography"), and every prompt reads it dynamically instead of assuming
+/// photography.
+model CreativeProfile {
   id                 String   @id @default("default")
   displayName        String   @map("display_name")
+  /// e.g. "concert photography", "wedding videography", "live sound engineering"
+  craft              String   @default("photography")
   services           String[]
   experienceBullets  String[] @map("experience_bullets")
   styleKeywords      String[] @map("style_keywords")
@@ -397,7 +403,7 @@ model PhotographerProfile {
   portfolioUrl       String?  @map("portfolio_url")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
-  @@map("photographer_profile")
+  @@map("creative_profile")
 }
 
 model User {

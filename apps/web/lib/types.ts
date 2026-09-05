@@ -89,9 +89,10 @@ export interface Statistics {
   followupsDue: number;
 }
 
-export interface PhotographerProfile {
+export interface CreativeProfile {
   id: string;
   displayName: string;
+  craft: string;
   services: string[];
   experienceBullets: string[];
   styleKeywords: string[];

@@ -2,8 +2,9 @@ import { describe, it, expect } from "vitest";
 import { buildOutreachEmailPrompt } from "./outreach-email.js";
 
 const baseCtx = {
-  photographer: {
+  creative: {
     displayName: "Test Photographer",
+    craft: "concert photography",
     services: ["Concert photography"],
     experienceBullets: ["Shot free concerts for a local venue"],
     styleKeywords: ["low-light"],
@@ -23,9 +24,19 @@ const baseCtx = {
 };
 
 describe("buildOutreachEmailPrompt", () => {
-  it("includes a hard honesty constraint tied to the photographer profile", () => {
+  it("includes a hard honesty constraint tied to the creative profile", () => {
     const { system } = buildOutreachEmailPrompt(baseCtx);
-    expect(system).toMatch(/Only state facts that appear in the PHOTOGRAPHER_PROFILE/);
+    expect(system).toMatch(/Only state facts that appear in the CREATIVE_PROFILE/);
+  });
+
+  it("is not hardcoded to photography — uses the profile's own craft", () => {
+    const { system, prompt } = buildOutreachEmailPrompt({
+      ...baseCtx,
+      creative: { ...baseCtx.creative, craft: "live sound engineering" },
+    });
+    expect(system).toContain("live sound engineering");
+    expect(prompt).toContain("Craft/discipline: live sound engineering");
+    expect(prompt).toMatch(/pitching live sound engineering coverage/);
   });
 
   it("bans generic AI/corporate phrases", () => {

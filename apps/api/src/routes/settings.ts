@@ -5,7 +5,7 @@ import { authenticate } from "../auth.js";
 
 export function registerSettingsRoutes(app: FastifyInstance) {
   app.get("/api/settings/profile", { preHandler: authenticate }, async () => {
-    return prisma.photographerProfile.findUnique({ where: { id: "default" } });
+    return prisma.creativeProfile.findUnique({ where: { id: "default" } });
   });
 
   app.put(
@@ -15,6 +15,7 @@ export function registerSettingsRoutes(app: FastifyInstance) {
       schema: {
         body: z.object({
           displayName: z.string(),
+          craft: z.string().min(1),
           services: z.array(z.string()),
           experienceBullets: z.array(z.string()),
           styleKeywords: z.array(z.string()),
@@ -27,6 +28,7 @@ export function registerSettingsRoutes(app: FastifyInstance) {
     async (request) => {
       const body = request.body as {
         displayName: string;
+        craft: string;
         services: string[];
         experienceBullets: string[];
         styleKeywords: string[];
@@ -34,7 +36,7 @@ export function registerSettingsRoutes(app: FastifyInstance) {
         targetGenres: string[];
         portfolioUrl?: string;
       };
-      return prisma.photographerProfile.upsert({
+      return prisma.creativeProfile.upsert({
         where: { id: "default" },
         update: body,
         create: { id: "default", ...body },

@@ -36,16 +36,17 @@ export async function generateEmailDraft({ opportunityId, force = false }: Gener
       if (existing) return existing;
     }
 
-    const profile = await prisma.photographerProfile.findUnique({ where: { id: "default" } });
+    const profile = await prisma.creativeProfile.findUnique({ where: { id: "default" } });
     if (!profile) {
       throw new ValidationError(
-        "No photographer profile configured — set one up on the Settings page before generating emails",
+        "No creative profile configured — set one up on the Settings page before generating emails",
       );
     }
 
     const promptCtx = {
-      photographer: {
+      creative: {
         displayName: profile.displayName,
+        craft: profile.craft,
         services: profile.services,
         experienceBullets: profile.experienceBullets,
         styleKeywords: profile.styleKeywords,
