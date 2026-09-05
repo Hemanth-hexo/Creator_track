@@ -1,5 +1,5 @@
 [build]
-  command = "pnpm install --frozen-lockfile && pnpm --filter @photography-outreach/web build"
+  command = "pnpm install --frozen-lockfile --prod=false && pnpm --filter @photography-outreach/web build"
   publish = "apps/web/.next"
 
 [[plugins]]
