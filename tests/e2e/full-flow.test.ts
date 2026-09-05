@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@photography-outreach/database";
 import { ensureOpportunityForEvent, getOpportunityDetail, runScoring } from "@photography-outreach/opportunities";
-import { addContact } from "@photography-outreach/research";
+import { addContact, dismissContact, getContacts } from "@photography-outreach/research";
 import { generateEmailDraft, setLLMProviderForTesting } from "@photography-outreach/ai";
 import { approveDraft, getOutreachHistory, sendApprovedEmail, setTransportForTesting } from "@photography-outreach/email";
 
@@ -88,7 +88,9 @@ describe("Phase 1 end-to-end outreach flow", () => {
       await prisma.activityLog.deleteMany({ where: { opportunityId: opp.id } });
       await prisma.opportunity.delete({ where: { id: opp.id } });
     }
-    await prisma.contact.deleteMany({ where: { email: "jane@e2e-test.example.com" } });
+    await prisma.contact.deleteMany({
+      where: { email: { in: ["jane@e2e-test.example.com", "noise@e2e-test.example.com"] } },
+    });
     await prisma.event.delete({ where: { id: eventId } });
     await prisma.$disconnect();
   });
@@ -116,6 +118,32 @@ describe("Phase 1 end-to-end outreach flow", () => {
     const detail = await getOpportunityDetail(opp.id);
     expect(detail.status).toBe("contact_found");
     expect(detail.primaryContactId).toBe(contact.id);
+  });
+
+  it("dismisses an irrelevant candidate contact without touching the primary contact", async () => {
+    const opp = await prisma.opportunity.findUniqueOrThrow({ where: { eventId } });
+    const noise = await addContact({
+      opportunityId: opp.id,
+      email: "noise@e2e-test.example.com",
+      name: "Not The Right Person",
+      role: "Unrelated department",
+      organizationName: "E2E Test Promoter",
+      source: "manual",
+      sourceUrl: "https://example.com/promoter",
+    });
+
+    // Can't dismiss the contact currently in use.
+    await expect(dismissContact(opp.id, opp.primaryContactId!, "user")).rejects.toThrow(/currently in use/i);
+
+    const before = await getContacts(opp.id);
+    expect(before.map((c) => c.id)).toContain(noise.id);
+
+    await dismissContact(opp.id, noise.id, "user");
+
+    const after = await getContacts(opp.id);
+    expect(after.map((c) => c.id)).not.toContain(noise.id);
+    // The primary contact is untouched and still visible.
+    expect(after.map((c) => c.id)).toContain(opp.primaryContactId);
   });
 
   it("generates a draft that never invents unverified experience", async () => {

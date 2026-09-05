@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   addContact,
+  dismissContact,
   getContacts,
   getDefaultResearchProvider,
   researchOpportunity,
@@ -63,6 +64,16 @@ export function registerContactTools(server: McpServer) {
     wrapTool("select_contact", recordSchema, async (input) => {
       const { opportunityId, contactId } = input as { opportunityId: string; contactId: string };
       return setPrimaryContact(opportunityId, contactId, "user");
+    }),
+  );
+
+  server.tool(
+    "dismiss_contact",
+    "Marks a candidate contact as not worth pitching (wrong department, irrelevant role, etc.) so it stops showing up as a candidate for this organization going forward. Never deletes the row — reversible in the database, just hidden from future candidate lists. Refuses to dismiss the opportunity's current primary contact.",
+    { opportunityId: z.string(), contactId: z.string() },
+    wrapTool("dismiss_contact", recordSchema, async (input) => {
+      const { opportunityId, contactId } = input as { opportunityId: string; contactId: string };
+      return dismissContact(opportunityId, contactId, "user");
     }),
   );
 }

@@ -149,13 +149,23 @@ export default function OpportunityDetailPage({ params }: { params: Promise<{ id
                         {c.email} · source: {c.source}
                       </div>
                     </div>
-                    <button
-                      className="btn-secondary text-xs shrink-0"
-                      disabled={busy}
-                      onClick={() => run(() => api.post(`/api/opportunities/${id}/contacts/${c.id}/select`))}
-                    >
-                      Use this contact
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        className="btn-secondary text-xs"
+                        disabled={busy}
+                        onClick={() => run(() => api.post(`/api/opportunities/${id}/contacts/${c.id}/select`))}
+                      >
+                        Use this contact
+                      </button>
+                      <button
+                        className="text-xs text-slate-400 hover:text-red-600"
+                        disabled={busy}
+                        title="Not relevant — hide this candidate going forward"
+                        onClick={() => run(() => api.post(`/api/opportunities/${id}/contacts/${c.id}/dismiss`))}
+                      >
+                        Dismiss
+                      </button>
+                    </div>
                   </div>
                 ))}
             </div>

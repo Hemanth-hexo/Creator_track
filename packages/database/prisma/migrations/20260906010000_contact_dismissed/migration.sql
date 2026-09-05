@@ -1,0 +1,1 @@
+ALTER TABLE "contacts" ADD COLUMN "dismissed" BOOLEAN NOT NULL DEFAULT false;

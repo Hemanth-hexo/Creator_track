@@ -180,6 +180,8 @@ model Contact {
   source         String
   sourceUrl      String?  @map("source_url")
   confidence     Int      @default(50)
+  /** A human decided this candidate isn't worth pitching (wrong department, irrelevant role, etc.) — hidden from future candidate lists for this organization, never hard-deleted. */
+  dismissed      Boolean  @default(false)
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 

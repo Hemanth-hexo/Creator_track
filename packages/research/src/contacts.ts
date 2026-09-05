@@ -105,5 +105,41 @@ export async function getContacts(opportunityId: string) {
   if (!opportunity) throw new NotFoundError("Opportunity", opportunityId);
 
   const contacts = opportunity.organization?.contacts ?? (opportunity.primaryContact ? [opportunity.primaryContact] : []);
-  return contacts;
+  // Dismissed candidates are hidden from view, not deleted — see dismissContact.
+  // The current primary contact always stays visible even if it was later
+  // dismissed as a candidate elsewhere, since it's still the one in use here.
+  return contacts.filter((c) => !c.dismissed || c.id === opportunity.primaryContactId);
+}
+
+/**
+ * A human decided this candidate contact isn't worth pitching (wrong
+ * department, irrelevant role, etc.) — hides it from future candidate lists
+ * for its organization (across every opportunity there, not just this one,
+ * since the same noisy staff-directory entry would otherwise keep
+ * resurfacing). Never deletes the row, so it stays reversible and the
+ * activity log stays accurate. Refuses to dismiss the opportunity's own
+ * current primary contact — pick a different one first.
+ */
+export async function dismissContact(opportunityId: string, contactId: string, actor: "user" | "system" = "user") {
+  const [opportunity, contact] = await Promise.all([
+    prisma.opportunity.findUnique({ where: { id: opportunityId } }),
+    prisma.contact.findUnique({ where: { id: contactId } }),
+  ]);
+  if (!opportunity) throw new NotFoundError("Opportunity", opportunityId);
+  if (!contact) throw new NotFoundError("Contact", contactId);
+  if (opportunity.primaryContactId === contactId) {
+    throw new ValidationError("Can't dismiss the contact currently in use — select a different one first");
+  }
+
+  const updated = await prisma.contact.update({ where: { id: contactId }, data: { dismissed: true } });
+  await prisma.activityLog.create({
+    data: {
+      opportunityId,
+      type: "contact_dismissed",
+      message: `Dismissed candidate contact ${contact.email} as not relevant`,
+      actor,
+      metadata: { contactId },
+    },
+  });
+  return updated;
 }

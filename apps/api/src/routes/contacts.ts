@@ -1,6 +1,13 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { addContact, getContacts, getDefaultResearchProvider, researchOpportunity, setPrimaryContact } from "@photography-outreach/research";
+import {
+  addContact,
+  dismissContact,
+  getContacts,
+  getDefaultResearchProvider,
+  researchOpportunity,
+  setPrimaryContact,
+} from "@photography-outreach/research";
 import { authenticate } from "../auth.js";
 
 export function registerContactRoutes(app: FastifyInstance) {
@@ -50,6 +57,15 @@ export function registerContactRoutes(app: FastifyInstance) {
     async (request) => {
       const { id, contactId } = request.params as { id: string; contactId: string };
       return setPrimaryContact(id, contactId, "user");
+    },
+  );
+
+  app.post(
+    "/api/opportunities/:id/contacts/:contactId/dismiss",
+    { preHandler: authenticate },
+    async (request) => {
+      const { id, contactId } = request.params as { id: string; contactId: string };
+      return dismissContact(id, contactId, "user");
     },
   );
 }
