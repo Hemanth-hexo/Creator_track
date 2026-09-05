@@ -28,6 +28,35 @@ async function withJobRun<T>(jobName: string, fn: () => Promise<T>): Promise<T |
   }
 }
 
+/**
+ * Same bookkeeping as `withJobRun`, but returns as soon as the `job_runs` row
+ * exists instead of waiting for `fn` to finish. Used for HTTP-triggered runs
+ * (e.g. the "Run event discovery" button): a multi-query discovery pass is a
+ * handful of real search+LLM round trips and can run past a host's proxy
+ * timeout (e.g. Render returns 502 rather than waiting), so the request must
+ * return immediately and the caller polls `job_runs` for completion instead.
+ */
+async function triggerJobAsync<T>(jobName: string, fn: () => Promise<T>): Promise<string> {
+  const run = await prisma.jobRun.create({ data: { jobName, status: "running" } });
+  void fn()
+    .then(async (result) => {
+      await prisma.jobRun.update({
+        where: { id: run.id },
+        data: { status: "success", finishedAt: new Date(), stats: result as never },
+      });
+      logger.info({ jobId: run.id, jobName, status: "success" }, "job_run");
+    })
+    .catch(async (error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      await prisma.jobRun.update({
+        where: { id: run.id },
+        data: { status: "failed", finishedAt: new Date(), error: message },
+      });
+      logger.error({ jobId: run.id, jobName, status: "failed", err: message }, "job_run");
+    });
+  return run.id;
+}
+
 /** Daily event discovery: OpenAI web search against every active discovery query, then score any new opportunities. */
 async function runDiscoveryJob() {
   let provider;
@@ -57,4 +86,4 @@ export function startScheduler() {
   logger.info("cron scheduler started");
 }
 
-export { runDiscoveryJob, runFollowupCheckJob, withJobRun };
+export { runDiscoveryJob, runFollowupCheckJob, withJobRun, triggerJobAsync };

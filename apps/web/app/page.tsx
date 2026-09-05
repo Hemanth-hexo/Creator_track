@@ -39,14 +39,36 @@ export default function DashboardPage() {
     load();
   }, []);
 
+  function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   async function runDiscovery() {
     setDiscovering(true);
     setError(null);
     try {
-      await api.post("/api/events/discover");
+      // Discovery runs in the background on the server (it's several real
+      // search+LLM calls and can take a minute or more), so this just starts
+      // the job and polls its status instead of waiting on one long request.
+      const { jobId } = await api.post<{ jobId: string }>("/api/events/discover");
+      const maxAttempts = 40; // ~2 minutes at 3s intervals
+      let finished = false;
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        await sleep(3000);
+        const job = await api.get<{ status: string; error: string | null }>(`/api/jobs/${jobId}`);
+        if (job.status === "success") {
+          finished = true;
+          break;
+        }
+        if (job.status === "failed") throw new Error(job.error ?? "Discovery job failed");
+      }
+      if (!finished) {
+        setError("Discovery is taking longer than expected — it's still running in the background, check back shortly.");
+      }
       await load();
     } catch (e) {
       if (e instanceof ApiError) setError(e.message);
+      else if (e instanceof Error) setError(e.message);
     } finally {
       setDiscovering(false);
     }

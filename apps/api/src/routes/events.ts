@@ -3,6 +3,7 @@ import { z } from "zod";
 import { discoverEvents, getDefaultEventProvider, getEvent, searchEvents } from "@photography-outreach/events";
 import { processDiscoveredEvents } from "@photography-outreach/opportunities";
 import { authenticate } from "../auth.js";
+import { triggerJobAsync } from "../jobs/scheduler.js";
 
 export function registerEventRoutes(app: FastifyInstance) {
   app.get(
@@ -38,10 +39,17 @@ export function registerEventRoutes(app: FastifyInstance) {
     return getEvent(id);
   });
 
-  app.post("/api/events/discover", { preHandler: authenticate }, async () => {
-    const provider = getDefaultEventProvider();
-    const discoveryStats = await discoverEvents(provider);
-    const opportunityStats = await processDiscoveredEvents();
-    return { discovery: discoveryStats, opportunities: opportunityStats };
+  // Discovery is several real search+LLM round trips and can run past a
+  // host's proxy timeout, so this kicks the job off and returns immediately;
+  // the caller polls GET /api/jobs/:id for the result (see routes/jobs.ts).
+  app.post("/api/events/discover", { preHandler: authenticate }, async (_request, reply) => {
+    const jobId = await triggerJobAsync("manual_event_discovery", async () => {
+      const provider = getDefaultEventProvider();
+      const discoveryStats = await discoverEvents(provider);
+      const opportunityStats = await processDiscoveredEvents();
+      return { discovery: discoveryStats, opportunities: opportunityStats };
+    });
+    reply.code(202);
+    return { jobId, status: "running" };
   });
 }

@@ -14,6 +14,7 @@ import { registerFollowupRoutes } from "./routes/followups.js";
 import { registerActivityRoutes } from "./routes/activity.js";
 import { registerStatsRoutes } from "./routes/stats.js";
 import { registerSettingsRoutes } from "./routes/settings.js";
+import { registerJobRoutes } from "./routes/jobs.js";
 
 export async function buildServer() {
   const env = loadEnv();
@@ -42,6 +43,7 @@ export async function buildServer() {
     registerActivityRoutes(instance);
     registerStatsRoutes(instance);
     registerSettingsRoutes(instance);
+    registerJobRoutes(instance);
   });
 
   app.get("/health", async () => ({ status: "ok" }));
