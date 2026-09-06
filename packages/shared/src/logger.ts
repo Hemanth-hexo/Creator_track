@@ -19,13 +19,24 @@ export interface LogContext {
   [key: string]: unknown;
 }
 
-const baseLogger = pino({
-  level: process.env.LOG_LEVEL ?? "info",
-  transport:
-    process.env.NODE_ENV === "development"
-      ? { target: "pino-pretty", options: { colorize: true, translateTime: "HH:MM:ss" } }
-      : undefined,
-});
+// apps/mcp talks to clients over stdio, using stdout as the literal JSON-RPC
+// wire — any log line written there corrupts the protocol stream for a real
+// MCP client. Every log line goes to stderr instead, for every app, not just
+// apps/mcp: apps/api doesn't care which fd its logs land on (Render and
+// friends capture both), so there's no reason to special-case it.
+const baseLogger =
+  process.env.NODE_ENV === "development"
+    ? pino({
+        level: process.env.LOG_LEVEL ?? "info",
+        transport: {
+          target: "pino-pretty",
+          // pino-pretty is itself a transport with its own destination —
+          // passing a stream as pino()'s second argument isn't allowed
+          // alongside `transport`, so stderr is set here instead.
+          options: { colorize: true, translateTime: "HH:MM:ss", destination: 2 },
+        },
+      })
+    : pino({ level: process.env.LOG_LEVEL ?? "info" }, pino.destination(2));
 
 export type Logger = pino.Logger;
 
