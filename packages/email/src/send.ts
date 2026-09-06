@@ -1,6 +1,7 @@
 import { prisma } from "@photography-outreach/database";
 import { transitionOpportunityStatus } from "@photography-outreach/opportunities";
 import { AppError, NotFoundError, createLogger, withLogging } from "@photography-outreach/shared";
+import { markFollowupSent } from "./followups.js";
 import { sendMail } from "./transport.js";
 
 const logger = createLogger("email:send");
@@ -79,6 +80,19 @@ export async function sendApprovedEmail(draftId: string) {
       });
 
       await transitionOpportunityStatus(draft.opportunityId, "sent", "user");
+
+      // If this send is fulfilling an approved follow-up, link and close it
+      // out — this is the one place a follow-up's lifecycle actually
+      // reaches "sent," since a follow-up email goes through the exact same
+      // generate/approve/send pipeline as a first-contact one and isn't
+      // otherwise distinguishable from it.
+      const approvedFollowup = await prisma.followup.findFirst({
+        where: { opportunityId: draft.opportunityId, status: "approved" },
+      });
+      if (approvedFollowup) {
+        await markFollowupSent(approvedFollowup.id, draftId);
+      }
+
       return outreach;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

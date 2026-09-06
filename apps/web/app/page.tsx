@@ -7,13 +7,21 @@ import type { OpportunityRecord, Statistics } from "@/lib/types";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { StatusPill } from "@/components/StatusPill";
 
-function StatCard({ label, value }: { label: string; value: number | string }) {
-  return (
-    <div className="card p-4">
+function StatCard({ label, value, href }: { label: string; value: number | string; href?: string }) {
+  const content = (
+    <>
       <div className="text-2xl font-semibold text-slate-900">{value}</div>
       <div className="text-xs text-slate-500 mt-1">{label}</div>
-    </div>
+    </>
   );
+  if (href) {
+    return (
+      <Link href={href} className="card p-4 block hover:border-brand-300">
+        {content}
+      </Link>
+    );
+  }
+  return <div className="card p-4">{content}</div>;
 }
 
 export default function DashboardPage() {
@@ -93,7 +101,7 @@ export default function DashboardPage() {
           <StatCard label="Awaiting approval" value={stats.awaitingApprovalCount} />
           <StatCard label="Drafts" value={stats.draftedCount} />
           <StatCard label="Sent this week" value={stats.sentThisWeek} />
-          <StatCard label="Follow-ups due" value={stats.followupsDue} />
+          <StatCard label="Follow-ups due" value={stats.followupsDue} href="/followups" />
         </div>
       )}
 

@@ -3,7 +3,14 @@ import { prisma } from "@photography-outreach/database";
 import { ensureOpportunityForEvent, getOpportunityDetail, runScoring } from "@photography-outreach/opportunities";
 import { addContact, dismissContact, getContacts } from "@photography-outreach/research";
 import { generateEmailDraft, setLLMProviderForTesting } from "@photography-outreach/ai";
-import { approveDraft, getOutreachHistory, sendApprovedEmail, setTransportForTesting } from "@photography-outreach/email";
+import {
+  approveDraft,
+  approveFollowup,
+  getOutreachHistory,
+  scheduleFollowup,
+  sendApprovedEmail,
+  setTransportForTesting,
+} from "@photography-outreach/email";
 
 /**
  * Drives the whole Phase 1 loop end to end against a real Postgres (see
@@ -82,6 +89,7 @@ describe("Phase 1 end-to-end outreach flow", () => {
     await prisma.activityLog.deleteMany({ where: { event: { sourceId } } }).catch(() => {});
     const opp = await prisma.opportunity.findUnique({ where: { eventId } });
     if (opp) {
+      await prisma.followup.deleteMany({ where: { opportunityId: opp.id } });
       await prisma.outreach.deleteMany({ where: { opportunityId: opp.id } });
       await prisma.emailVersion.deleteMany({ where: { draft: { opportunityId: opp.id } } });
       await prisma.emailDraft.deleteMany({ where: { opportunityId: opp.id } });
@@ -172,6 +180,28 @@ describe("Phase 1 end-to-end outreach flow", () => {
 
     const history = await getOutreachHistory(opp.id);
     expect(history).toHaveLength(1);
+  });
+
+  it("auto-completes an approved follow-up when its draft is sent", async () => {
+    const opp = await prisma.opportunity.findUniqueOrThrow({ where: { eventId } });
+    const outreach = await prisma.outreach.findFirstOrThrow({ where: { opportunityId: opp.id } });
+
+    const followup = await scheduleFollowup(opp.id, outreach.id, 5);
+    expect(followup.status).toBe("scheduled");
+
+    await approveFollowup(followup.id, "user");
+
+    // The first draft is already "sent," so generateEmailDraft's idempotent
+    // reuse doesn't apply here — this is a genuinely new draft for the follow-up.
+    const followupDraft = await generateEmailDraft({ opportunityId: opp.id });
+    expect(followupDraft.id).not.toBe(outreach.emailDraftId);
+
+    await approveDraft(followupDraft.id, "e2e-test-user");
+    await sendApprovedEmail(followupDraft.id);
+
+    const updated = await prisma.followup.findUniqueOrThrow({ where: { id: followup.id } });
+    expect(updated.status).toBe("sent");
+    expect(updated.draftId).toBe(followupDraft.id);
   });
 
   it("records a complete, ordered activity timeline for the opportunity", async () => {

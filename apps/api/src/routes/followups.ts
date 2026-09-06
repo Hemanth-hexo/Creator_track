@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   approveFollowup,
   cancelFollowup,
+  getApprovedFollowups,
   getDueFollowups,
   getOutreachHistory,
   scheduleFollowup,
@@ -12,6 +13,10 @@ import { authenticate } from "../auth.js";
 export function registerFollowupRoutes(app: FastifyInstance) {
   app.get("/api/followups/due", { preHandler: authenticate }, async () => {
     return getDueFollowups();
+  });
+
+  app.get("/api/followups/approved", { preHandler: authenticate }, async () => {
+    return getApprovedFollowups();
   });
 
   app.get("/api/opportunities/:id/outreach", { preHandler: authenticate }, async (request) => {

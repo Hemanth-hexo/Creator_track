@@ -101,6 +101,20 @@ export interface CreativeProfile {
   portfolioUrl: string | null;
 }
 
+export interface FollowupRecord {
+  id: string;
+  opportunityId: string;
+  outreachId: string;
+  draftId: string | null;
+  scheduledFor: string;
+  status: "scheduled" | "approved" | "sent" | "cancelled";
+  opportunity: {
+    id: string;
+    event: EventRecord;
+    primaryContact: ContactRecord | null;
+  };
+}
+
 export interface DiscoveryQuery {
   id: string;
   query: string;

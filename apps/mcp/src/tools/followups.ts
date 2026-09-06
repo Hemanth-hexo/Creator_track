@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { scheduleFollowup } from "@photography-outreach/email";
+import { approveFollowup, cancelFollowup, getApprovedFollowups, getDueFollowups, scheduleFollowup } from "@photography-outreach/email";
 import { wrapTool } from "../toolHelper.js";
 import { recordSchema } from "../schemas.js";
 
@@ -17,5 +17,33 @@ export function registerFollowupTools(server: McpServer) {
       };
       return scheduleFollowup(opportunityId, outreachId, daysFromNow);
     }),
+  );
+
+  server.tool(
+    "get_due_followups",
+    "Lists follow-ups scheduled for today or earlier that a human hasn't approved yet — never auto-sent.",
+    {},
+    wrapTool("get_due_followups", z.array(recordSchema), async () => getDueFollowups()),
+  );
+
+  server.tool(
+    "get_approved_followups",
+    "Lists follow-ups a human already approved but hasn't sent yet (generate + approve + send the draft on the opportunity to complete one).",
+    {},
+    wrapTool("get_approved_followups", z.array(recordSchema), async () => getApprovedFollowups()),
+  );
+
+  server.tool(
+    "approve_followup",
+    "A human signs off that a due follow-up should proceed. Required before its draft can be sent — sending an approved draft on the same opportunity automatically marks the matching approved follow-up as sent.",
+    { followupId: z.string() },
+    wrapTool("approve_followup", recordSchema, async ({ followupId }: { followupId: string }) => approveFollowup(followupId)),
+  );
+
+  server.tool(
+    "cancel_followup",
+    "Cancels a scheduled or approved follow-up — it won't be suggested again for this outreach.",
+    { followupId: z.string() },
+    wrapTool("cancel_followup", recordSchema, async ({ followupId }: { followupId: string }) => cancelFollowup(followupId)),
   );
 }

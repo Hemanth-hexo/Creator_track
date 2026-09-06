@@ -1,5 +1,5 @@
 import { prisma } from "@photography-outreach/database";
-import { AppError, NotFoundError, createLogger } from "@photography-outreach/shared";
+import { ActivityActor, AppError, NotFoundError, createLogger } from "@photography-outreach/shared";
 
 const logger = createLogger("email:followups");
 
@@ -43,20 +43,49 @@ export async function getDueFollowups() {
   });
 }
 
+/** Follow-ups a human already signed off on but hasn't sent yet — kept visible so an approval never silently falls out of view before the actual draft gets sent. */
+export async function getApprovedFollowups() {
+  return prisma.followup.findMany({
+    where: { status: "approved" },
+    include: { opportunity: { include: { event: true, primaryContact: true } } },
+    orderBy: { scheduledFor: "asc" },
+  });
+}
+
 /** A human explicitly signs off that this follow-up should proceed to drafting. Required before any send. */
-export async function approveFollowup(followupId: string) {
+export async function approveFollowup(followupId: string, actor: ActivityActor = "user") {
   const followup = await prisma.followup.findUnique({ where: { id: followupId } });
   if (!followup) throw new NotFoundError("Followup", followupId);
   if (followup.status !== "scheduled") {
     throw new AppError("CONFLICT", `Cannot approve a follow-up in status "${followup.status}"`);
   }
-  return prisma.followup.update({ where: { id: followupId }, data: { status: "approved" } });
+  const updated = await prisma.followup.update({ where: { id: followupId }, data: { status: "approved" } });
+  await prisma.activityLog.create({
+    data: {
+      opportunityId: followup.opportunityId,
+      type: "followup_approved",
+      message: "Follow-up approved — generate and send its draft from the opportunity page",
+      actor,
+      metadata: { followupId },
+    },
+  });
+  return updated;
 }
 
-export async function cancelFollowup(followupId: string) {
+export async function cancelFollowup(followupId: string, actor: ActivityActor = "user") {
   const followup = await prisma.followup.findUnique({ where: { id: followupId } });
   if (!followup) throw new NotFoundError("Followup", followupId);
-  return prisma.followup.update({ where: { id: followupId }, data: { status: "cancelled" } });
+  const updated = await prisma.followup.update({ where: { id: followupId }, data: { status: "cancelled" } });
+  await prisma.activityLog.create({
+    data: {
+      opportunityId: followup.opportunityId,
+      type: "followup_cancelled",
+      message: "Follow-up cancelled",
+      actor,
+      metadata: { followupId },
+    },
+  });
+  return updated;
 }
 
 /**
