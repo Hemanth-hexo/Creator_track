@@ -2,6 +2,19 @@
  * Everything a scoring rule might need. Kept as plain data (no Prisma types)
  * so the engine can be unit tested with fixtures instead of a database.
  */
+/**
+ * Real past-outcome counts, split by how strong a precedent each is —
+ * booking work at this exact venue before is a much stronger signal than
+ * merely having booked something in the same city. The scoring rule uses
+ * whichever is the strongest match rather than summing all three, so the
+ * same underlying booking doesn't get counted more than once.
+ */
+export interface SimilarEventConversionHistory {
+  sameVenueBookedCount: number;
+  sameArtistBookedCount: number;
+  sameCityBookedCount: number;
+}
+
 export interface ScoringContext {
   event: {
     startsAt: Date;
@@ -14,7 +27,7 @@ export interface ScoringContext {
   targetGenres: string[];
   hasKnownContact: boolean;
   recentOutreachToSameArtistOrVenue: number;
-  previousConvertedSimilarEvents: number;
+  similarEventConversionHistory: SimilarEventConversionHistory;
   now: Date;
 }
 

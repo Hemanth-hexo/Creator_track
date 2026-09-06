@@ -16,7 +16,7 @@ function baseCtx(overrides: Partial<ScoringContext> = {}): ScoringContext {
     targetGenres: ["electronic", "house"],
     hasKnownContact: false,
     recentOutreachToSameArtistOrVenue: 0,
-    previousConvertedSimilarEvents: 0,
+    similarEventConversionHistory: { sameVenueBookedCount: 0, sameArtistBookedCount: 0, sameCityBookedCount: 0 },
     now,
     ...overrides,
   };
@@ -62,6 +62,41 @@ describe("scoreOpportunity", () => {
     const result = scoreOpportunity(baseCtx());
     const conversionReason = result.reasons.find((r) => r.rule === "similar_event_conversion_history");
     expect(conversionReason).toBeUndefined();
+  });
+
+  describe("similar_event_conversion_history", () => {
+    it("prefers the same-venue precedent over artist or city when more than one applies", () => {
+      const result = scoreOpportunity(
+        baseCtx({
+          similarEventConversionHistory: { sameVenueBookedCount: 1, sameArtistBookedCount: 1, sameCityBookedCount: 1 },
+        }),
+      );
+      const reason = result.reasons.find((r) => r.rule === "similar_event_conversion_history");
+      expect(reason).toMatchObject({ points: 15 });
+      expect(reason?.explanation).toMatch(/exact venue/);
+    });
+
+    it("falls back to the artist precedent when no venue precedent exists", () => {
+      const result = scoreOpportunity(
+        baseCtx({
+          similarEventConversionHistory: { sameVenueBookedCount: 0, sameArtistBookedCount: 1, sameCityBookedCount: 1 },
+        }),
+      );
+      const reason = result.reasons.find((r) => r.rule === "similar_event_conversion_history");
+      expect(reason).toMatchObject({ points: 12 });
+      expect(reason?.explanation).toMatch(/this artist/);
+    });
+
+    it("falls back to the weaker city-only precedent when that's all there is", () => {
+      const result = scoreOpportunity(
+        baseCtx({
+          similarEventConversionHistory: { sameVenueBookedCount: 0, sameArtistBookedCount: 0, sameCityBookedCount: 2 },
+        }),
+      );
+      const reason = result.reasons.find((r) => r.rule === "similar_event_conversion_history");
+      expect(reason).toMatchObject({ points: 8 });
+      expect(reason?.explanation).toMatch(/this city/);
+    });
   });
 });
 

@@ -67,13 +67,21 @@ export const scoringRules: ScoringRule[] = [
   },
   {
     id: "similar_event_conversion_history",
-    description: "Similar events have previously converted into booked work",
+    description: "A similar past opportunity actually converted into booked work",
     evaluate(ctx) {
-      if (ctx.previousConvertedSimilarEvents === 0) return null;
-      return {
-        points: 10,
-        explanation: `Similar events previously converted (${ctx.previousConvertedSimilarEvents})`,
-      };
+      const { sameVenueBookedCount, sameArtistBookedCount, sameCityBookedCount } = ctx.similarEventConversionHistory;
+      // Strongest precedent only, not summed — a venue that already booked
+      // you is also "in the same city," but that's one fact, not two.
+      if (sameVenueBookedCount > 0) {
+        return { points: 15, explanation: `Booked work at this exact venue before (${sameVenueBookedCount}x)` };
+      }
+      if (sameArtistBookedCount > 0) {
+        return { points: 12, explanation: `Booked work with this artist before (${sameArtistBookedCount}x)` };
+      }
+      if (sameCityBookedCount > 0) {
+        return { points: 8, explanation: `Booked work in this city before (${sameCityBookedCount}x)` };
+      }
+      return null;
     },
   },
 ];

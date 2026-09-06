@@ -44,20 +44,29 @@ async function buildScoringContext(opportunityId: string): Promise<ScoringContex
   });
   if (!opportunity) throw new NotFoundError("Opportunity", opportunityId);
 
-  const [profile, recentOutreach, convertedSimilar] = await Promise.all([
+  const { artistName, venueName, venueCity } = opportunity.event;
+
+  const [profile, recentOutreach, sameVenueBooked, sameArtistBooked, sameCityBooked] = await Promise.all([
     prisma.creativeProfile.findUnique({ where: { id: "default" } }),
+    // Named "...OrVenue" but historically only ever checked artistName —
+    // re-pitching the same venue repeatedly (different artists) went
+    // uncaught. venueName is only added to the OR when known, since Prisma
+    // treats an explicit `undefined` value as "no filter," not "match null."
     prisma.outreach.count({
       where: {
         createdAt: { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) },
-        opportunity: { event: { artistName: opportunity.event.artistName } },
+        opportunity: {
+          event: { OR: [{ artistName }, ...(venueName ? [{ venueName }] : [])] },
+        },
       },
     }),
-    prisma.opportunity.count({
-      where: {
-        status: "booked",
-        event: { venueCity: opportunity.event.venueCity ?? undefined },
-      },
-    }),
+    venueName
+      ? prisma.opportunity.count({ where: { status: "booked", id: { not: opportunityId }, event: { venueName } } })
+      : Promise.resolve(0),
+    prisma.opportunity.count({ where: { status: "booked", id: { not: opportunityId }, event: { artistName } } }),
+    venueCity
+      ? prisma.opportunity.count({ where: { status: "booked", id: { not: opportunityId }, event: { venueCity } } })
+      : Promise.resolve(0),
   ]);
 
   return {
@@ -72,7 +81,11 @@ async function buildScoringContext(opportunityId: string): Promise<ScoringContex
     targetGenres: profile?.targetGenres ?? [],
     hasKnownContact: Boolean(opportunity.primaryContactId),
     recentOutreachToSameArtistOrVenue: recentOutreach,
-    previousConvertedSimilarEvents: convertedSimilar,
+    similarEventConversionHistory: {
+      sameVenueBookedCount: sameVenueBooked,
+      sameArtistBookedCount: sameArtistBooked,
+      sameCityBookedCount: sameCityBooked,
+    },
     now: new Date(),
   };
 }
